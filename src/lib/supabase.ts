@@ -11,6 +11,11 @@ export const supabase =
 
 export const isSupabaseConfigured = () => !!supabase;
 
+/** Create a Supabase client from url + anon key (e.g. from runtime config API). */
+export function createSupabaseClient(url: string, anonKey: string) {
+  return url && anonKey ? createClient(url, anonKey) : null;
+}
+
 export type DbAppointment = {
   id: string;
   patient_name: string;

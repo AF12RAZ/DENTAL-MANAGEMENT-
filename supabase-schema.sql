@@ -1,6 +1,10 @@
 -- Run this in Supabase SQL Editor (Dashboard -> SQL Editor) to create tables.
 -- Then create an admin user: Authentication -> Users -> Add user (email + password).
 -- Use that email/password to sign in to the admin portal.
+--
+-- In Vercel set env vars (Project Settings -> API in Supabase for the key; Project Overview for URL):
+--   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+-- The app loads these at runtime from /api/config in production, so no need to rely on build-time inlining.
 
 -- Appointments (public can insert; admin manages via Auth)
 create table if not exists public.appointments (
@@ -41,12 +45,16 @@ create table if not exists public.revenue (
 );
 
 -- RLS: enable
-alter table public.appointments enable row level security;
+alter table public.appointments enable row level security;    
 alter table public.revenue enable row level security;
 
 -- Anyone can insert appointments (booking form)
 create policy "Anyone can insert appointments"
   on public.appointments for insert with check (true);
+
+-- Explicitly allow anon role (public booking form uses anon key, no login)
+create policy "Allow anon to insert appointments"
+  on public.appointments for insert to anon with check (true);
 
 -- Authenticated users (admin) can read/update appointments
 create policy "Authenticated can select appointments"

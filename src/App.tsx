@@ -9,8 +9,8 @@ import { format, addMonths, subMonths, addDays, subDays, startOfMonth, endOfMont
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 import {
-  supabase,
-  isSupabaseConfigured,
+  supabase as supabaseFromEnv,
+  createSupabaseClient,
   mapAppointmentFromDb,
   mapAppointmentToDb,
   mapRevenueFromDb,
@@ -51,29 +51,44 @@ function App() {
   const [bookMonth, setBookMonth] = useState(new Date());
   const [bookVisitType, setBookVisitType] = useState<'first' | 'followup' | 'consultation'>('consultation');
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
+  const [supabaseClient, setSupabaseClient] = useState<ReturnType<typeof createSupabaseClient>>(null);
 
   const navigate = useNavigate();
-  const useSupabase = isSupabaseConfigured();
+  const useSupabase = !!supabaseClient;
+
+  // In production, load Supabase config from API (env at runtime). In dev, use build-time env.
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      fetch('/api/config')
+        .then((r) => r.json())
+        .then(({ url, anonKey }: { url?: string; anonKey?: string }) => {
+          if (url && anonKey) setSupabaseClient(createSupabaseClient(url, anonKey));
+        })
+        .catch(() => {});
+    } else {
+      setSupabaseClient(supabaseFromEnv);
+    }
+  }, []);
 
   // Auth state from Supabase
   useEffect(() => {
-    if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!supabaseClient) return;
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabaseClient]);
 
   // Load data: Supabase (when authenticated) or localStorage
   const fetchData = async () => {
-    if (!supabase) return;
+    if (!supabaseClient) return;
     setDataError(null);
     try {
-      const { data: apptRows, error: apptErr } = await supabase.from('appointments').select('*').order('preferred_date', { ascending: false });
-      const { data: revRows, error: revErr } = await supabase.from('revenue').select('*').order('date', { ascending: false });
+      const { data: apptRows, error: apptErr } = await supabaseClient.from('appointments').select('*').order('preferred_date', { ascending: false });
+      const { data: revRows, error: revErr } = await supabaseClient.from('revenue').select('*').order('date', { ascending: false });
       if (apptErr || revErr) {
         setDataError(apptErr?.message || revErr?.message || 'Failed to load data');
         return;
@@ -87,7 +102,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (useSupabase && supabase) {
+    if (useSupabase && supabaseClient) {
       if (!isAuthenticated) {
         setAppointments([]);
         setRevenues([]);
@@ -124,7 +139,7 @@ function App() {
       }
       setDataReady(true);
     }
-  }, [useSupabase, isAuthenticated]);
+  }, [useSupabase, isAuthenticated, supabaseClient]);
 
   // Save to localStorage only when not using Supabase
   useEffect(() => {
@@ -136,8 +151,8 @@ function App() {
   }, [revenues, useSupabase, dataReady]);
 
   const login = async (email: string, password: string) => {
-    if (useSupabase && supabase) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (useSupabase && supabaseClient) {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) {
         toast.error(error.message || 'Invalid credentials');
         return;
@@ -157,7 +172,7 @@ function App() {
   };
 
   const logout = async () => {
-    if (useSupabase && supabase) await supabase.auth.signOut();
+    if (useSupabase && supabaseClient) await supabaseClient.auth.signOut();
     localStorage.removeItem('token');
     setIsAuthenticated(false);
     navigate('/');
@@ -165,11 +180,21 @@ function App() {
   };
 
   const addAppointment = async (appt: Omit<Appointment, 'id' | 'status'>) => {
-    if (useSupabase && supabase) {
+    if (useSupabase && supabaseClient) {
       const row = mapAppointmentToDb({ ...appt, status: 'pending' });
-      const { data, error } = await supabase.from('appointments').insert(row).select('id, patient_name, phone, email, service, preferred_date, status, rejection_reason, confirmed_date').single();
+      const { data, error } = await supabaseClient.from('appointments').insert(row).select('id, patient_name, phone, email, service, preferred_date, status, rejection_reason, confirmed_date').single();
       if (error) {
-        toast.error(error.message || 'Failed to book appointment');
+        const is401 =
+          (error as { status?: number }).status === 401 ||
+          (error as { code?: string }).code === 'PGRST301' ||
+          /401|unauthorized/i.test(error.message || '');
+        if (is401) {
+          toast.error(
+            'Booking failed (401): Set VITE_SUPABASE_ANON_KEY in Vercel (Project → Settings → Environment Variables), then redeploy so the new build uses it.'
+          );
+        } else {
+          toast.error(error.message || 'Failed to book appointment');
+        }
         return;
       }
       setAppointments(prev => [mapAppointmentFromDb(data), ...prev]);
@@ -184,8 +209,8 @@ function App() {
     const appt = appointments.find(a => a.id === id);
     const timePart = appt?.preferredDate?.includes('T') ? appt.preferredDate.slice(11, 19) : '10:00:00';
     const confirmedDate = `${assignedDateStr}T${timePart}`;
-    if (useSupabase && supabase) {
-      const { error } = await supabase.from('appointments').update({ status: 'confirmed', confirmed_date: confirmedDate }).eq('id', id);
+    if (useSupabase && supabaseClient) {
+      const { error } = await supabaseClient.from('appointments').update({ status: 'confirmed', confirmed_date: confirmedDate }).eq('id', id);
       if (error) {
         toast.error(error.message || 'Failed to confirm');
         return;
@@ -206,9 +231,9 @@ function App() {
     const visitLabel = appt.followUpNotes ? ' (return visit)' : '';
     const newRevenuePayload = { amount, paymentMethod: method, date: revenueDate, notes: `${appt.service} - ${appt.patientName}${visitLabel}`, source: 'online' as const };
     const newStatus = willVisitBack ? 'confirmed' : 'completed';
-    if (useSupabase && supabase) {
-      const { data: revRow, error: revErr } = await supabase.from('revenue').insert(mapRevenueToDb(newRevenuePayload)).select('id, amount, payment_method, date, notes, source').single();
-      const { error: apptErr } = await supabase.from('appointments').update({ status: newStatus, follow_up_notes: willVisitBack ? (followUpNotes || null) : null }).eq('id', id);
+    if (useSupabase && supabaseClient) {
+      const { data: revRow, error: revErr } = await supabaseClient.from('revenue').insert(mapRevenueToDb(newRevenuePayload)).select('id, amount, payment_method, date, notes, source').single();
+      const { error: apptErr } = await supabaseClient.from('appointments').update({ status: newStatus, follow_up_notes: willVisitBack ? (followUpNotes || null) : null }).eq('id', id);
       if (revErr || apptErr) {
         toast.error(revErr?.message || apptErr?.message || 'Failed to record');
         return;
@@ -240,13 +265,13 @@ function App() {
       followUpNotes: willVisitBack ? offlineReturnFollowUpNote : undefined,
       source: 'walk_in' as const,
     };
-    if (useSupabase && supabase) {
-      const { data: newRow, error: insertErr } = await supabase.from('revenue').insert(mapRevenueToDb(newPayload)).select('id, amount, payment_method, date, notes, will_visit_back, follow_up_notes, source').single();
+    if (useSupabase && supabaseClient) {
+      const { data: newRow, error: insertErr } = await supabaseClient.from('revenue').insert(mapRevenueToDb(newPayload)).select('id, amount, payment_method, date, notes, will_visit_back, follow_up_notes, source').single();
       if (insertErr) {
         toast.error(insertErr.message || 'Failed to add return payment');
         return;
       }
-      const { error: updateErr } = await supabase.from('revenue').update({ will_visit_back: false }).eq('id', revForReturnPayment.id);
+      const { error: updateErr } = await supabaseClient.from('revenue').update({ will_visit_back: false }).eq('id', revForReturnPayment.id);
       if (updateErr) {
         toast.error(updateErr.message || 'Failed to update record');
         return;
@@ -264,8 +289,8 @@ function App() {
     const appt = appointments.find(a => a.id === id);
     const timePart = appt?.confirmedDate?.includes('T') ? appt.confirmedDate.slice(11, 19) : appt?.preferredDate?.includes('T') ? appt.preferredDate.slice(11, 19) : '10:00:00';
     const newConfirmedDate = `${newDateStr}T${timePart}`;
-    if (useSupabase && supabase) {
-      const { error } = await supabase.from('appointments').update({ confirmed_date: newConfirmedDate }).eq('id', id);
+    if (useSupabase && supabaseClient) {
+      const { error } = await supabaseClient.from('appointments').update({ confirmed_date: newConfirmedDate }).eq('id', id);
       if (error) {
         toast.error(error.message || 'Failed to update date');
         return;
@@ -280,8 +305,8 @@ function App() {
   };
 
   const rejectAppointment = async (id: string, reason: string) => {
-    if (useSupabase && supabase) {
-      const { error } = await supabase.from('appointments').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
+    if (useSupabase && supabaseClient) {
+      const { error } = await supabaseClient.from('appointments').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
       if (error) {
         toast.error(error.message || 'Failed to reject');
         return;
@@ -1361,8 +1386,8 @@ function App() {
                         const willVisitBack = offlineFormOutcome === 'will_visit_back';
                         const followUpNotes = willVisitBack ? offlineFormFollowUpNote : undefined;
                         const payload = { amount, paymentMethod: method, date, notes, willVisitBack, followUpNotes, source: 'walk_in' as const };
-                        if (useSupabase && supabase) {
-                          const { data: row, error } = await supabase.from('revenue').insert(mapRevenueToDb(payload)).select('id, amount, payment_method, date, notes, will_visit_back, follow_up_notes, source').single();
+                        if (useSupabase && supabaseClient) {
+                          const { data: row, error } = await supabaseClient.from('revenue').insert(mapRevenueToDb(payload)).select('id, amount, payment_method, date, notes, will_visit_back, follow_up_notes, source').single();
                           if (error) {
                             toast.error(error.message || "Failed to add revenue");
                             return;
