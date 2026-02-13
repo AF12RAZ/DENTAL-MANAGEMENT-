@@ -2,9 +2,13 @@
 -- Then create an admin user: Authentication -> Users -> Add user (email + password).
 -- Use that email/password to sign in to the admin portal.
 --
--- In Vercel set env vars (Project Settings -> API in Supabase for the key; Project Overview for URL):
---   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
--- The app loads these at runtime from /api/config in production, so no need to rely on build-time inlining.
+-- In Vercel set env vars:
+--   VITE_SUPABASE_URL = Project Overview -> "A RESTful endpoint..." URL
+--   VITE_SUPABASE_ANON_KEY = Use the LEGACY anon key (long JWT starting with eyJ...).
+--     In Supabase: Project Settings -> API -> open "Legacy API Keys" tab -> copy the "anon" key.
+--     Do NOT use the new "Publishable key" (sb_publishable_...) for VITE_SUPABASE_ANON_KEY: the JS client
+--     sends it in Authorization: Bearer, and PostgREST rejects non-JWT there, causing 401.
+-- The app loads these at runtime from /api/config in production.
 
 -- Appointments (public can insert; admin manages via Auth)
 create table if not exists public.appointments (

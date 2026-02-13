@@ -57,12 +57,20 @@ function App() {
   const useSupabase = !!supabaseClient;
 
   // In production, load Supabase config from API (env at runtime). In dev, use build-time env.
+  // Only use anon key if it looks like a JWT (eyJ...) - publishable key (sb_publishable_...) causes 401 with PostgREST.
   useEffect(() => {
     if (import.meta.env.PROD) {
       fetch('/api/config')
         .then((r) => r.json())
         .then(({ url, anonKey }: { url?: string; anonKey?: string }) => {
-          if (url && anonKey) setSupabaseClient(createSupabaseClient(url, anonKey));
+          const isJwt = typeof anonKey === 'string' && anonKey.startsWith('eyJ');
+          if (url && anonKey && isJwt) {
+            setSupabaseClient(createSupabaseClient(url, anonKey));
+          } else if (url && anonKey && !isJwt) {
+            console.warn(
+              '[Supabase] anon key is not a JWT (expected to start with eyJ). Use Legacy anon key from Supabase: Project Settings → API → Legacy API Keys.'
+            );
+          }
         })
         .catch(() => {});
     } else {
