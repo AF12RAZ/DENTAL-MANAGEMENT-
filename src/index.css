@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ========== LIGHT MODE (default) ========== */
+:root {
+  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Primary */
+  --color-primary: #FF6B35;
+  --color-primary-hover: #E55A1A;
+  --color-gold: #D4AF37;
+  --color-off-white: #F8F6F3;
+  /* Backgrounds */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-elevated: #ffffff;
+  /* Text */
+  --color-text-primary: #171717;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #737373;
+  /* Accents */
+  --color-success: #4ECDC4;
+  --color-warm: #FFB088;
+  --color-border: #e5e5e5;
+  /* Legacy aliases */
+  --color-dark: #0F0F0F;
+  --color-surface: #FAFAFA;
+  --color-text: #171717;
+  --color-text-muted: #525252;
+}
+
+/* ========== PREMIUM DARK MODE ========== */
+.dark {
+  --color-primary: #FF6B35;
+  --color-primary-hover: #FFB088;
+  --color-gold: #D4AF37;
+  --color-off-white: #F8F6F3;
+  /* Dark mode background layers */
+  --color-bg-primary: #0A0E13;
+  --color-bg-secondary: #151B23;
+  --color-bg-elevated: #1E2830;
+  /* Text */
+  --color-text-primary: #F8F6F3;
+  --color-text-secondary: #A8B3BF;
+  --color-text-tertiary: #6B7785;
+  /* Accents */
+  --color-success: #4ECDC4;
+  --color-warm: #FFB088;
+  --color-border: #2A3441;
+  /* Legacy */
+  --color-surface: #151B23;
+  --color-text: #F8F6F3;
+  --color-text-muted: #A8B3BF;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+body {
+  font-feature-settings: "kern" 1, "tnum" 1;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* High-contrast labels */
+.label-visible {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.dark .label-visible {
+  color: var(--color-text-secondary);
+}
+
+/* ========== GLASS NAVIGATION (dark mode) ========== */
+.glass {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+}
+
+.dark .nav-glass,
+.nav-glass.dark {
+  background: rgba(21, 27, 35, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+  transition: all 0.3s ease;
+}
+
+/* ========== PREMIUM CARD STYLES ========== */
+.card-premium {
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.dark .card-premium {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 24px 48px -8px rgba(0, 0, 0, 0.5), 0 12px 24px -8px rgba(0, 0, 0, 0.3);
+}
+
+/* Service card gradient overlays (for dark mode) */
+.card-overlay-1 {
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.15), rgba(255, 107, 53, 0.1));
+}
+.card-overlay-2 {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(78, 205, 196, 0.08));
+}
+.card-overlay-3 {
+  background: linear-gradient(135deg, rgba(255, 176, 136, 0.15), rgba(212, 175, 55, 0.1));
+}
+
+/* ========== PREMIUM BUTTON (gradient + states) ========== */
+.btn-premium {
+  background: linear-gradient(135deg, #FF6B35, #FFB088);
+  color: #fff;
+  transition: all 0.3s ease;
+  border: none;
+}
+.btn-premium:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.35);
+}
+.btn-premium:active {
+  transform: scale(0.98);
+}
+
+/* Sign-in / CTA gradient (orange to gold) */
+.btn-premium-gold {
+  background: linear-gradient(135deg, #FF6B35, #D4AF37);
+  color: #fff;
+  transition: all 0.3s ease;
+  border: none;
+}
+.btn-premium-gold:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+}
+.btn-premium-gold:active {
+  transform: scale(0.98);
+}
+
+/* ========== DARK MODE INPUTS (elevated surface) ========== */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #1E2830 !important;
+  border-color: #2A3441 !important;
+  color: #F8F6F3 !important;
+  transition: all 0.3s ease;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6B7785 !important;
+}
+
+/* ========== LOGO GLOW (dark mode) ========== */
+.dark .logo-glow {
+  filter: drop-shadow(0 0 20px rgba(255, 107, 53, 0.3));
+}
+
+.table-row {
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background-color: #f8fafc;
+}
+
+.dark .table-row:hover {
+  background-color: rgba(30, 40, 48, 0.6);
+}
