@@ -190,8 +190,9 @@ function App() {
   const addAppointment = async (appt: Omit<Appointment, 'id' | 'status'>) => {
     if (useSupabase && supabaseClient) {
       const row = mapAppointmentToDb({ ...appt, status: 'pending' });
-      const { data, error } = await supabaseClient.from('appointments').insert(row).select('id, patient_name, phone, email, service, preferred_date, status, rejection_reason, confirmed_date').single();
+      const { error } = await supabaseClient.from('appointments').insert(row);
       if (error) {
+        console.error('Appointment booking error:', error);
         const is401 =
           (error as { status?: number }).status === 401 ||
           (error as { code?: string }).code === 'PGRST301' ||
@@ -205,7 +206,6 @@ function App() {
         }
         return;
       }
-      setAppointments(prev => [mapAppointmentFromDb(data), ...prev]);
     } else {
       const newAppt: Appointment = { ...appt, id: crypto.randomUUID(), status: 'pending' };
       setAppointments(prev => [newAppt, ...prev]);
